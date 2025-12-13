@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import SearchResults from './components/SearchResults';
+import Comparison from './components/Comparison';
 import Footer from './components/Footer';
 
 function App() {
@@ -20,6 +21,8 @@ function App() {
         {selectedCity && (
           <SearchResults cityId={selectedCity.id} cityName={selectedCity.name} />
         )}
+        
+        <Comparison />
         
         {!selectedCity && (
           <div className="container-custom py-16">

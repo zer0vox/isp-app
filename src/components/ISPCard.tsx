@@ -44,15 +44,44 @@ const ISPCard: React.FC<ISPCardProps> = ({ isp, coverage, onViewDetails }) => {
 
   return (
     <div className="card card-hover p-6 relative group" onClick={onViewDetails}>
+      {/* Action Buttons - Absolute positioned top right */}
+      <div className="absolute top-4 right-4 flex space-x-1 z-20">
+        <button
+          onClick={handleFavoriteClick}
+          className={`p-2 rounded-md transition-all ${
+            favorite
+              ? 'text-error-600 bg-error-50 dark:bg-error-900/20'
+              : 'text-neutral-400 hover:text-error-600 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+          }`}
+          title={favorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart className="w-5 h-5" fill={favorite ? 'currentColor' : 'none'} />
+        </button>
+        <button
+          onClick={handleCompareClick}
+          disabled={inComparison || comparison.length >= 3}
+          className={`p-2 rounded-md transition-all ${
+            inComparison
+              ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/20'
+              : comparison.length >= 3
+              ? 'text-neutral-300 cursor-not-allowed'
+              : 'text-neutral-400 hover:text-primary-600 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+          }`}
+          title={inComparison ? 'In comparison' : 'Add to comparison'}
+        >
+          <GitCompare className="w-5 h-5" />
+        </button>
+      </div>
+
       {/* Special Offer Badge */}
       {isp.specialOffers.length > 0 && (
-        <div className="absolute -top-2 -right-2 bg-error-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md z-10">
+        <div className="absolute top-4 left-4 bg-error-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md z-10">
           Special Offer
         </div>
       )}
 
-      {/* Header with Logo and Actions */}
-      <div className="flex items-start justify-between mb-4">
+      {/* Header with Logo */}
+      <div className="flex items-start mb-4 pr-20">
         <div className="flex items-center space-x-3 flex-1">
           <div className="w-16 h-16 rounded-lg border border-neutral-200 dark:border-dark-border flex items-center justify-center bg-white dark:bg-dark-bg overflow-hidden flex-shrink-0">
             <img
@@ -74,35 +103,6 @@ const ISPCard: React.FC<ISPCardProps> = ({ isp, coverage, onViewDetails }) => {
               {isp.tagline}
             </p>
           </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex space-x-1 ml-2">
-          <button
-            onClick={handleFavoriteClick}
-            className={`p-2 rounded-md transition-all ${
-              favorite
-                ? 'text-error-600 bg-error-50 dark:bg-error-900/20'
-                : 'text-neutral-400 hover:text-error-600 hover:bg-neutral-50 dark:hover:bg-neutral-800'
-            }`}
-            title={favorite ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart className="w-5 h-5" fill={favorite ? 'currentColor' : 'none'} />
-          </button>
-          <button
-            onClick={handleCompareClick}
-            disabled={inComparison || comparison.length >= 3}
-            className={`p-2 rounded-md transition-all ${
-              inComparison
-                ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                : comparison.length >= 3
-                ? 'text-neutral-300 cursor-not-allowed'
-                : 'text-neutral-400 hover:text-primary-600 hover:bg-neutral-50 dark:hover:bg-neutral-800'
-            }`}
-            title={inComparison ? 'In comparison' : 'Add to comparison'}
-          >
-            <GitCompare className="w-5 h-5" />
-          </button>
         </div>
       </div>
 
