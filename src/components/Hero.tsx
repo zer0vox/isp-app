@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Search, MapPin, TrendingUp, Users, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, MapPin, TrendingUp, Users, Shield, Navigation } from 'lucide-react';
 import { cities } from '../data';
 import { useApp } from '../contexts/AppContext';
+import { useGeolocation } from '../hooks/useGeolocation';
+import SecurityBanner from './SecurityBanner';
 
 interface HeroProps {
   onCitySelect: (cityId: string, cityName: string) => void;
@@ -10,7 +12,26 @@ interface HeroProps {
 const Hero: React.FC<HeroProps> = ({ onCitySelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const { addRecentSearch, recentSearches } = useApp();
+  const [showSecurityBanner, setShowSecurityBanner] = useState(true);
+  const { addRecentSearch, recentSearches, geolocation, setGeolocation } = useApp();
+  
+  // Fetch geolocation on component mount
+  const { geolocation: geoData, nearestCity, isLoading: geoLoading } = useGeolocation();
+
+  // Update context when geolocation is fetched
+  useEffect(() => {
+    if (geoData) {
+      setGeolocation(geoData);
+    }
+  }, [geoData, setGeolocation]);
+
+  // Auto-select nearest city if detected
+  useEffect(() => {
+    if (nearestCity && !searchQuery) {
+      // Optional: Auto-select nearest city
+      // onCitySelect(nearestCity.id, `${nearestCity.name}, ${nearestCity.state}`);
+    }
+  }, [nearestCity]);
 
   const filteredCities = searchQuery
     ? cities.filter(city =>
@@ -33,12 +54,25 @@ const Hero: React.FC<HeroProps> = ({ onCitySelect }) => {
     }, 100);
   };
 
+  const handleUseMyLocation = () => {
+    if (nearestCity) {
+      onCitySelect(nearestCity.id, `${nearestCity.name}, ${nearestCity.state}`);
+    }
+  };
+
   return (
     <div className="relative bg-gradient-to-b from-primary-50 to-white dark:from-dark-bg dark:to-dark-surface py-20 overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
       
       <div className="container-custom relative">
+        {/* Security Banner */}
+        {geolocation && showSecurityBanner && (
+          <SecurityBanner 
+            geolocation={geolocation} 
+            onDismiss={() => setShowSecurityBanner(false)}
+          />
+        )}
         <div className="max-w-4xl mx-auto text-center">
           {/* Heading */}
           <h1 className="text-5xl md:text-6xl font-bold text-neutral-900 dark:text-dark-text mb-6 animate-fadeIn">
@@ -71,6 +105,31 @@ const Hero: React.FC<HeroProps> = ({ onCitySelect }) => {
                 Search
               </button>
             </div>
+
+            {/* Use My Location Button */}
+            {nearestCity && !geoLoading && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={handleUseMyLocation}
+                  className="inline-flex items-center space-x-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium transition-colors"
+                >
+                  <Navigation className="w-4 h-4" />
+                  <span>Use my location: {nearestCity.name}, {nearestCity.state}</span>
+                </button>
+              </div>
+            )}
+            
+            {geoLoading && (
+              <div className="mt-4 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                <div className="inline-flex items-center space-x-2">
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Detecting your location...</span>
+                </div>
+              </div>
+            )}
 
             {/* Autocomplete Suggestions */}
             {showSuggestions && (searchQuery || recentSearches.length > 0) && (

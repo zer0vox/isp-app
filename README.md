@@ -257,22 +257,46 @@ export default {
 
 ### Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory (copy from `.env.example`):
 
 ```env
-# API Endpoints (for future backend integration)
-VITE_API_URL=https://api.example.com
+# IPStack API Configuration
+VITE_IPSTACK_API_KEY=your_ipstack_api_key_here
 
 # Analytics
 VITE_ANALYTICS_ID=your-analytics-id
 
 # Feature Flags
 VITE_ENABLE_MAPS=true
+VITE_ENABLE_GEOLOCATION=true
 ```
+
+#### Setting up IPStack API
+
+1. **Sign up for IPStack**:
+   - Visit [https://ipstack.com/](https://ipstack.com/)
+   - Sign up for a free account (10,000 requests/month)
+   - Get your API access key from the dashboard
+
+2. **Add to `.env` file**:
+   ```env
+   VITE_IPSTACK_API_KEY=your_actual_api_key_here
+   ```
+
+3. **Features Enabled**:
+   - **Free Tier**: Basic geolocation, city detection, coordinates
+   - **Paid Tiers**: Security module, threat detection, proxy/VPN detection, Tor detection
+
+4. **Security Module** (requires paid plan):
+   - Real-time threat assessment
+   - Proxy/VPN detection
+   - Tor network detection
+   - Suspicious IP flagging
+   - Threat level scoring (low/medium/high)
 
 Access in code:
 ```typescript
-const apiUrl = import.meta.env.VITE_API_URL;
+const apiKey = import.meta.env.VITE_IPSTACK_API_KEY;
 ```
 
 ---

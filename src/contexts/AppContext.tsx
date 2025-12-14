@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { RecentSearch, ComparisonItem } from '../types';
+import type { GeolocationData } from '../utils/geolocation';
 
 interface AppContextType {
   // Dark mode
@@ -27,6 +28,10 @@ interface AppContextType {
   // Plan type filter (business vs residential)
   planType: 'residential' | 'business' | 'both';
   setPlanType: (type: 'residential' | 'business' | 'both') => void;
+
+  // Geolocation
+  geolocation: GeolocationData | null;
+  setGeolocation: (data: GeolocationData | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -37,6 +42,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [comparison, setComparison] = useState<ComparisonItem[]>([]);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
   const [planType, setPlanType] = useState<'residential' | 'business' | 'both'>('residential');
+  const [geolocation, setGeolocation] = useState<GeolocationData | null>(null);
 
   // Dark mode functions
   const toggleDarkMode = () => {
@@ -117,6 +123,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     clearRecentSearches,
     planType,
     setPlanType,
+    geolocation,
+    setGeolocation,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
