@@ -65,44 +65,208 @@ export const fetchGeolocation = async (accessKey?: string): Promise<GeolocationD
     const apiKey = accessKey || import.meta.env.VITE_IPSTACK_API_KEY;
     
     if (!apiKey) {
-      console.warn('IPStack API key not configured. Geolocation disabled.');
+      console.warn('IPStack API key not configured. Please add VITE_IPSTACK_API_KEY to your .env file.');
       return null;
     }
 
-    // Fetch current IP geolocation with security module
-    const response = await fetch(
-      `http://api.ipstack.com/check?access_key=${apiKey}&security=1`
-    );
-
-    if (!response.ok) {
-      throw new Error(`IPStack API error: ${response.status}`);
+    // Try with security module first (for paid plans), fallback to without security (free tier)
+    // Using HTTPS for better security and compatibility
+    let apiUrl = `https://api.ipstack.com/check?access_key=${apiKey}&security=1`;
+    console.log('Fetching geolocation from IPStack API (with security module)...', { 
+      apiUrl: apiUrl.replace(apiKey, '***') 
+    });
+    
+    let response = await fetch(apiUrl);
+    
+    // Parse JSON even if response is not OK, to check for specific error codes
+    let responseText = await response.text();
+    let data: IPStackResponse | { error?: { code: number; type: string; info: string }; success?: boolean };
+    
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      // If JSON parsing fails, throw with the raw text
+      throw new Error(`IPStack API error: ${response.status} - ${responseText}`);
+    }
+    
+    // Check for API errors in JSON response (even if HTTP status is not OK)
+    // IPStack may return 200 OK with error in JSON, or 400 with error details
+    if ('error' in data && data.error) {
+      const errorInfo = data.error;
+      
+      // If security module error (code 104 or 105), retry without security for free tier
+      if (errorInfo.code === 104 || errorInfo.code === 105) {
+        const errorCode = errorInfo.code;
+        console.warn(`Security module not supported (error ${errorCode}). Trying without security module (free tier)...`);
+        apiUrl = `https://api.ipstack.com/check?access_key=${apiKey}`;
+        response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`IPStack API error: ${response.status} - ${errorText}`);
+        }
+        
+        data = await response.json();
+        
+        // Check if retry also failed
+        if ('error' in data && data.error) {
+          const retryError = data.error;
+          throw new Error(`IPStack API error: ${retryError.type} - ${retryError.info}`);
+        }
+      } else {
+        // For other errors, throw immediately
+        throw new Error(`IPStack API error: ${errorInfo.type} - ${errorInfo.info}`);
+      }
+    } else if (!response.ok) {
+      // If no error in JSON but HTTP status is not OK, throw generic error
+      throw new Error(`IPStack API error: ${response.status} - ${responseText}`);
     }
 
-    const data: IPStackResponse = await response.json();
+    // Check for API errors in response (after retry if needed)
+    if ('error' in data && data.error) {
+      const errorInfo = data.error;
+      console.error('IPStack API error response:', {
+        code: errorInfo.code,
+        type: errorInfo.type,
+        info: errorInfo.info,
+      });
+      
+      // Provide helpful error messages
+      let errorMessage = 'IPStack API error';
+      if (errorInfo.code === 101) {
+        errorMessage = 'Invalid API key. Please check your VITE_IPSTACK_API_KEY in .env file.';
+        console.error(errorMessage);
+      } else if (errorInfo.code === 102) {
+        errorMessage = 'Inactive user account. Please check your IPStack account status.';
+        console.error(errorMessage);
+      } else if (errorInfo.code === 103) {
+        errorMessage = 'API access restricted. You may have exceeded your monthly quota or need a paid plan.';
+        console.error(errorMessage);
+      } else if (errorInfo.code === 104 || errorInfo.code === 105) {
+        // This should have been handled above, but if we still get here, the retry failed
+        errorMessage = `Security module not supported. Please use a paid plan or the API may be experiencing issues.`;
+        console.error(errorMessage);
+      } else {
+        errorMessage = `IPStack API error: ${errorInfo.type} - ${errorInfo.info}`;
+        console.error(errorMessage);
+      }
+      
+      // Throw error with message for better user feedback
+      throw new Error(errorMessage);
+    }
 
-    // Check for API errors
-    if ('error' in data) {
-      console.error('IPStack API error:', data);
+    // Type guard to ensure we have valid IPStackResponse
+    if (!('ip' in data) || !('city' in data)) {
+      console.error('Invalid IPStack API response format:', data);
       return null;
     }
+
+    const validData = data as IPStackResponse;
+
+    // Validate required fields
+    if (!validData.ip || !validData.city || !validData.latitude || !validData.longitude) {
+      console.error('IPStack API response missing required fields:', validData);
+      return null;
+    }
+
+    console.log('Successfully fetched geolocation:', {
+      ip: validData.ip,
+      city: validData.city,
+      country: validData.country_name,
+      hasSecurity: !!validData.security,
+    });
 
     return {
-      ip: data.ip,
-      city: data.city,
-      region: data.region_name,
-      country: data.country_name,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      security: data.security ? {
-        isProxy: data.security.is_proxy,
-        isTor: data.security.is_tor,
-        threatLevel: data.security.threat_level,
-        threatTypes: data.security.threat_types || [],
+      ip: validData.ip,
+      city: validData.city,
+      region: validData.region_name,
+      country: validData.country_name,
+      latitude: validData.latitude,
+      longitude: validData.longitude,
+      security: validData.security ? {
+        isProxy: validData.security.is_proxy,
+        isTor: validData.security.is_tor,
+        threatLevel: validData.security.threat_level,
+        threatTypes: validData.security.threat_types || [],
       } : undefined,
     };
   } catch (error) {
-    console.error('Error fetching geolocation:', error);
-    return null;
+    console.error('Error fetching geolocation from IPStack:', error);
+    
+    // Provide more specific error messages
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      const networkError = 'Network error: Unable to reach IPStack API. Check your internet connection or CORS settings.';
+      console.error(networkError);
+      throw new Error(networkError);
+    }
+    
+    // Re-throw if it's already an Error with a message
+    if (error instanceof Error) {
+      throw error;
+    }
+    
+    throw new Error('Unknown error occurred while fetching geolocation');
+  }
+};
+
+/**
+ * Fetch geolocation data from IPStack API without security module (for free tier)
+ * @param accessKey - Your IPStack API access key
+ * @returns Geolocation data
+ */
+const fetchGeolocationWithoutSecurity = async (accessKey: string): Promise<GeolocationData | null> => {
+  try {
+    const apiUrl = `https://api.ipstack.com/check?access_key=${accessKey}`;
+    console.log('Retrying without security module...');
+    
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`IPStack API HTTP error: ${response.status}`, errorText);
+      throw new Error(`IPStack API error: ${response.status} - ${errorText}`);
+    }
+
+    const data: IPStackResponse | { error?: { code: number; type: string; info: string } } = await response.json();
+
+    // Check for API errors in response
+    if ('error' in data && data.error) {
+      const errorInfo = data.error;
+      throw new Error(`IPStack API error: ${errorInfo.type} - ${errorInfo.info}`);
+    }
+
+    // Type guard to ensure we have valid IPStackResponse
+    if (!('ip' in data) || !('city' in data)) {
+      console.error('Invalid IPStack API response format:', data);
+      return null;
+    }
+
+    const validData = data as IPStackResponse;
+
+    // Validate required fields
+    if (!validData.ip || !validData.city || !validData.latitude || !validData.longitude) {
+      console.error('IPStack API response missing required fields:', validData);
+      return null;
+    }
+
+    console.log('Successfully fetched geolocation (without security module):', {
+      ip: validData.ip,
+      city: validData.city,
+      country: validData.country_name,
+    });
+
+    return {
+      ip: validData.ip,
+      city: validData.city,
+      region: validData.region_name,
+      country: validData.country_name,
+      latitude: validData.latitude,
+      longitude: validData.longitude,
+      // No security data for free tier
+    };
+  } catch (error) {
+    console.error('Error fetching geolocation without security module:', error);
+    throw error;
   }
 };
 

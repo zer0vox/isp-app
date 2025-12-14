@@ -48,6 +48,7 @@ This project demonstrates:
 
 ### Core Functionality
 - 🔍 **Smart Location Search** - Autocomplete with 15 major cities and recent search history
+- 📍 **Automatic Location Detection** - Uses IPStack API to detect user location and suggest nearest city
 - 🎯 **Advanced Filtering** - Filter by price, speed, connection type, and coverage percentage
 - 📊 **Multiple Sort Options** - Sort by coverage, price, speed, or rating
 - 🔄 **Side-by-Side Comparison** - Compare up to 3 ISPs simultaneously
@@ -192,7 +193,9 @@ isp-app/
 │   ├── types/               # TypeScript definitions
 │   │   └── index.ts         # All type interfaces
 │   ├── hooks/               # Custom React hooks
+│   │   └── useGeolocation.ts # IPStack geolocation hook
 │   ├── utils/               # Utility functions
+│   │   └── geolocation.ts   # IPStack API integration
 │   ├── App.tsx              # Main app component
 │   ├── main.tsx             # App entry point
 │   └── index.css            # Global styles
@@ -282,21 +285,71 @@ VITE_ENABLE_GEOLOCATION=true
    ```env
    VITE_IPSTACK_API_KEY=your_actual_api_key_here
    ```
+   
+   **Important**: After adding or updating the API key, restart the development server for changes to take effect:
+   ```bash
+   # Stop the server (Ctrl+C) and restart
+   npm run dev
+   ```
 
-3. **Features Enabled**:
-   - **Free Tier**: Basic geolocation, city detection, coordinates
-   - **Paid Tiers**: Security module, threat detection, proxy/VPN detection, Tor detection
+3. **How It Works**:
+   - The app automatically detects user location on page load
+   - Shows a "Use my location" button when a nearby city is found
+   - Automatically matches detected city with available cities in the database
+   - Falls back to coordinate-based nearest city matching if exact match not found
 
-4. **Security Module** (requires paid plan):
-   - Real-time threat assessment
-   - Proxy/VPN detection
-   - Tor network detection
-   - Suspicious IP flagging
-   - Threat level scoring (low/medium/high)
+4. **Features by Plan**:
+   
+   **Free Tier** (Automatic Fallback):
+   - ✅ Basic geolocation (IP address detection)
+   - ✅ City, region, and country detection
+   - ✅ Latitude and longitude coordinates
+   - ✅ Automatic nearest city matching
+   - ❌ Security module (automatically disabled for free tier)
+   
+   **Paid Tiers**:
+   - ✅ All free tier features
+   - ✅ Security module with threat detection
+   - ✅ Proxy/VPN detection
+   - ✅ Tor network detection
+   - ✅ Suspicious IP flagging
+   - ✅ Threat level scoring (low/medium/high)
 
-Access in code:
+5. **Automatic Error Handling**:
+   - The app automatically detects if you're on a free tier plan
+   - If security module is not available (error codes 104/105), it automatically retries without security parameters
+   - Clear error messages are shown if the API key is invalid or missing
+   - Helpful console logs for debugging API issues
+
+6. **Troubleshooting**:
+   
+   **Error: "IPStack API key not configured"**
+   - Make sure you've created a `.env` file in the `isp-app` directory
+   - Verify the key name is exactly `VITE_IPSTACK_API_KEY`
+   - Restart the dev server after adding the key
+   
+   **Error: "Invalid API key"**
+   - Double-check your API key in the IPStack dashboard
+   - Ensure there are no extra spaces or quotes in the `.env` file
+   
+   **Error: "API access restricted"**
+   - Check if you've exceeded your monthly quota (free tier: 10,000 requests/month)
+   - Verify your IPStack account is active
+   
+   **Location not detected**
+   - Check browser console for detailed error messages
+   - Verify your internet connection
+   - Ensure the API key is valid and not expired
+
+7. **Access in Code**:
 ```typescript
+// The API key is automatically loaded from environment variables
 const apiKey = import.meta.env.VITE_IPSTACK_API_KEY;
+
+// Use the geolocation hook in components
+import { useGeolocation } from '../hooks/useGeolocation';
+
+const { geolocation, nearestCity, isLoading, error } = useGeolocation();
 ```
 
 ---
@@ -355,6 +408,39 @@ The project follows these conventions:
 3. Update ISP coverage arrays to include the new city
 
 ### Custom Hooks
+
+#### useGeolocation Hook
+
+The app includes a custom hook for IPStack geolocation:
+
+```typescript
+// src/hooks/useGeolocation.ts
+import { useGeolocation } from '../hooks/useGeolocation';
+
+const { 
+  geolocation,    // GeolocationData | null
+  nearestCity,    // City | null
+  isLoading,      // boolean
+  error,          // string | null
+  refetch          // () => Promise<void>
+} = useGeolocation();
+
+// Example usage in a component
+useEffect(() => {
+  if (nearestCity) {
+    console.log('Detected city:', nearestCity.name);
+  }
+}, [nearestCity]);
+```
+
+**Features**:
+- Automatically fetches location on mount
+- Handles free tier limitations (auto-fallback)
+- Provides error messages for debugging
+- Supports manual refetch
+- Finds nearest city from detected coordinates
+
+#### Creating New Hooks
 
 Create reusable logic with custom hooks in `src/hooks/`:
 
@@ -579,6 +665,49 @@ When showcasing this project:
 - Map interactions may be slow on low-end devices
 - Dark mode images need optimization
 - Some ISP logos are placeholders
+- Geolocation requires valid IPStack API key (free tier works fine)
+
+## 🔧 IPStack API Integration Details
+
+### Implementation
+
+The IPStack API integration includes:
+
+1. **Automatic Fallback System**:
+   - Tries with security module first (for paid plans)
+   - Automatically retries without security if error codes 104/105 occur (free tier)
+   - Seamless experience regardless of plan type
+
+2. **Error Handling**:
+   - Specific error messages for common issues:
+     - Code 101: Invalid API key
+     - Code 102: Inactive account
+     - Code 103: Quota exceeded
+     - Code 104/105: Security module not available (auto-handled)
+   - User-friendly error messages in the UI
+   - Detailed console logs for debugging
+
+3. **Location Matching**:
+   - First tries to match city by name (exact match)
+   - Falls back to coordinate-based nearest city search
+   - Uses Haversine formula for accurate distance calculation
+   - Only matches cities within 500km radius
+
+4. **Security Features** (Paid Plans Only):
+   - Proxy/VPN detection
+   - Tor network detection
+   - Threat level assessment
+   - Security warnings displayed to users
+
+### API Endpoints Used
+
+- **Free Tier**: `https://api.ipstack.com/check?access_key={key}`
+- **Paid Tier**: `https://api.ipstack.com/check?access_key={key}&security=1`
+
+### Rate Limits
+
+- **Free Tier**: 10,000 requests/month
+- **Paid Tiers**: Varies by plan (check IPStack dashboard)
 
 Report bugs via [GitHub Issues](https://github.com/yourusername/isp-coverage-finder/issues)
 
@@ -598,3 +727,10 @@ For questions or support:
 ---
 
 *Last updated: December 12, 2024*
+
+### Recent Updates
+
+- ✅ **IPStack API Integration**: Automatic location detection with free tier support
+- ✅ **Smart Error Handling**: Automatic fallback for free tier plans (error codes 104/105)
+- ✅ **Improved User Experience**: "Use my location" button with automatic city matching
+- ✅ **Enhanced Debugging**: Detailed console logs and user-friendly error messages

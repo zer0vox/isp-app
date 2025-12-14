@@ -22,9 +22,20 @@ export const useGeolocation = (apiKey?: string): UseGeolocationReturn => {
       setIsLoading(true);
       setError(null);
 
+      // Check if API key is configured
+      const configuredApiKey = apiKey || import.meta.env.VITE_IPSTACK_API_KEY;
+      if (!configuredApiKey || configuredApiKey === 'your_ipstack_api_key_here') {
+        setError('IPStack API key not configured. Please add your actual API key to VITE_IPSTACK_API_KEY in your .env file.');
+        setIsLoading(false);
+        console.warn('IPStack API key not found or using placeholder. Geolocation features will be disabled.');
+        console.warn('Current API key value:', configuredApiKey ? '***' + configuredApiKey.slice(-4) : 'not set');
+        return;
+      }
+
       const data = await fetchGeolocation(apiKey);
       
       if (!data) {
+        setError('Unable to fetch location data. Please check your API key and internet connection.');
         setIsLoading(false);
         return;
       }
@@ -53,7 +64,8 @@ export const useGeolocation = (apiKey?: string): UseGeolocationReturn => {
       }
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch geolocation');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch geolocation';
+      setError(errorMessage);
       console.error('Geolocation error:', err);
     } finally {
       setIsLoading(false);
