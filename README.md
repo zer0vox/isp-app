@@ -1,4 +1,4 @@
-# 🌐 ISP Coverage Finder - Nepal
+# 🌐 KaskoIsP
 
 A professional, production-ready web application for comparing Internet Service Providers (ISPs) across Nepal. Built to showcase modern web development skills with a focus on user experience, performance, and maintainability.
 
