@@ -104,7 +104,7 @@ This project demonstrates:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/isp-coverage-finder.git
+git clone https://github.com/zer0vox/KaskoIsP.git
 cd isp-coverage-finder/isp-app
 ```
 
