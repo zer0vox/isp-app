@@ -1,4 +1,4 @@
-# 🌐 ISP Coverage Finder - Nepal
+# 🌐 KaskoIsP
 
 A professional, production-ready web application for comparing Internet Service Providers (ISPs) across Nepal. Built to showcase modern web development skills with a focus on user experience, performance, and maintainability.
 
@@ -107,7 +107,7 @@ This project demonstrates:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/isp-coverage-finder.git
+git clone https://github.com/zer0vox/KaskoIsP.git
 cd isp-coverage-finder/isp-app
 ```
 
