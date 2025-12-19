@@ -109,3 +109,28 @@ export interface RecentSearch {
   cityName: string;
   timestamp: string;
 }
+
+export interface SpeedTestResult {
+  downloadMbps: number;
+  uploadMbps: number;
+  pingMs: number;
+  jitterMs: number;
+  timestamp: string;
+  ispName?: string;
+  cityId?: string;
+}
+
+export interface IspStatus {
+  ispId: string;
+  ispName: string;
+  status: 'operational' | 'degraded' | 'outage' | 'maintenance';
+  message: string;
+  lastUpdated: string;
+  incidents?: {
+    id: string;
+    title: string;
+    severity: 'low' | 'medium' | 'high';
+    startedAt: string;
+    link?: string;
+  }[];
+}

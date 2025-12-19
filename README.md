@@ -49,6 +49,7 @@ This project demonstrates:
 ### Core Functionality
 - 🔍 **Smart Location Search** - Autocomplete with 15 major cities and recent search history
 - 📍 **Automatic Location Detection** - Uses IPStack API to detect user location and suggest nearest city
+- 🗺️ **Coverage Map** - Visual map of major cities with their most popular ISP highlighted
 - 🎯 **Advanced Filtering** - Filter by price, speed, connection type, and coverage percentage
 - 📊 **Multiple Sort Options** - Sort by coverage, price, speed, or rating
 - 🔄 **Side-by-Side Comparison** - Compare up to 3 ISPs simultaneously
@@ -58,9 +59,9 @@ This project demonstrates:
 
 ### User Experience
 - 🌓 **Dark Mode** - Toggle between light and dark themes
-- ❤️ **Favorites System** - Bookmark ISPs for quick access
+- ❤️ **Favorites System** - Bookmark ISPs for quick access, plus curated “Top ISP by City” section
 - 🎨 **Grid/List Views** - Switch between card and list layouts
-- 🗺️ **Coverage Maps** - Interactive maps showing service areas
+- 🗺️ **Coverage Maps** - Interactive maps showing service areas and popular providers
 - 🏷️ **Special Offers** - Display current promotions and discounts
 - 📈 **Speed Recommendations** - Get ISP suggestions based on usage profile
 
@@ -86,6 +87,8 @@ This project demonstrates:
 - **Framer Motion** - Production-ready animations
 - **React Leaflet** - Interactive maps for coverage visualization
 - **Recharts** - Composable charting library
+- **IPStack** - IP-based geolocation (city, region, coordinates)
+  <!-- Future: M-Lab / Statuspage integrations for real network data -->
 
 ### Design System
 - **Minimalist B2B Professional** - Clean, trustworthy design
@@ -693,6 +696,16 @@ The IPStack API integration includes:
      - Code 104/105: Security module not available (auto-handled)
    - User-friendly error messages in the UI
    - Detailed console logs for debugging
+
+5. **Speed Test & Status (Pluggable APIs)**:
+   - **Speed Test (Measurement Lab–style)**:
+     - `runSpeedTest(cityId)` in `src/utils/speedTest.ts` simulates a realistic speed test (download/upload, ping, jitter)
+     - UI exposed in the “Run a Speed Test” card in `SearchResults.tsx`
+     - Designed so it can be swapped with a real M-Lab NDT integration later
+   - **ISP Status / Outages (Statuspage-style)**:
+     - `fetchIspStatusForCity(cityId)` in `src/utils/status.ts` returns mock status data shaped like a real status API
+     - Shown as the “ISP Status in this City” card above search results
+     - Intended for future integration with real ISP status pages or custom APIs
 
 3. **Location Matching**:
    - First tries to match city by name (exact match)

@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { Grid, List, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Grid, List, SlidersHorizontal, ArrowUpDown, Activity, AlertTriangle, Wifi, Gauge } from 'lucide-react';
 import ISPCard from './ISPCard';
 import { isps } from '../data';
-import type { ISP, ConnectionType, SortOption } from '../types';
+import type { ISP, ConnectionType, SortOption, SpeedTestResult, IspStatus } from '../types';
 import { useApp } from '../contexts/AppContext';
+import { runSpeedTest } from '../utils/speedTest';
+import { fetchIspStatusForCity } from '../utils/status';
 
 interface SearchResultsProps {
   cityId?: string;
@@ -14,6 +16,11 @@ const SearchResults: React.FC<SearchResultsProps> = ({ cityId, cityName }) => {
   const { planType } = useApp();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
+  const [isRunningSpeedTest, setIsRunningSpeedTest] = useState(false);
+  const [speedTestResult, setSpeedTestResult] = useState<SpeedTestResult | null>(null);
+  const [speedTestError, setSpeedTestError] = useState<string | null>(null);
+  const [ispStatuses, setIspStatuses] = useState<IspStatus[] | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
   
   // Filter states
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 3000]);
@@ -136,6 +143,51 @@ const SearchResults: React.FC<SearchResultsProps> = ({ cityId, cityName }) => {
     minCoverage > 0 ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
+  // Load ISP status for current city
+  useEffect(() => {
+    if (!cityId) return;
+
+    let cancelled = false;
+    const loadStatus = async () => {
+      try {
+        setStatusLoading(true);
+        const data = await fetchIspStatusForCity(cityId);
+        if (!cancelled) {
+          setIspStatuses(data);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error('Failed to load ISP status', e);
+        }
+      } finally {
+        if (!cancelled) {
+          setStatusLoading(false);
+        }
+      }
+    };
+
+    loadStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cityId]);
+
+  const handleRunSpeedTest = async () => {
+    if (!cityId || isRunningSpeedTest) return;
+    setIsRunningSpeedTest(true);
+    setSpeedTestError(null);
+    try {
+      const result = await runSpeedTest(cityId);
+      setSpeedTestResult(result);
+    } catch (e) {
+      console.error('Speed test failed', e);
+      setSpeedTestError('Speed test failed. Please try again in a moment.');
+    } finally {
+      setIsRunningSpeedTest(false);
+    }
+  };
+
   if (!cityId) {
     return (
       <div className="container-custom py-16 text-center">
@@ -157,6 +209,144 @@ const SearchResults: React.FC<SearchResultsProps> = ({ cityId, cityName }) => {
           <p className="text-neutral-600 dark:text-neutral-400">
             Found {filteredAndSortedISPs.length} provider{filteredAndSortedISPs.length !== 1 ? 's' : ''} available in your area
           </p>
+        </div>
+
+        {/* Network Insights: Speed Test + ISP Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Speed Test Card */}
+          <div className="card p-5 flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-dark-text flex items-center space-x-2">
+                  <Gauge className="w-5 h-5 text-primary-600" />
+                  <span>Run a Speed Test</span>
+                </h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Simulated test inspired by M-Lab. Use this as a UX preview for a real NDT integration.
+                </p>
+              </div>
+              <button
+                onClick={handleRunSpeedTest}
+                disabled={isRunningSpeedTest || !cityId}
+                className="btn btn-primary text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isRunningSpeedTest ? 'Testing…' : 'Run test'}
+              </button>
+            </div>
+
+            {speedTestError && (
+              <div className="text-xs text-error-600 dark:text-error-400">
+                {speedTestError}
+              </div>
+            )}
+
+            {speedTestResult && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                    Download
+                  </div>
+                  <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
+                    {speedTestResult.downloadMbps} <span className="text-xs font-normal">Mbps</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                    Upload
+                  </div>
+                  <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
+                    {speedTestResult.uploadMbps} <span className="text-xs font-normal">Mbps</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                    Ping
+                  </div>
+                  <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
+                    {speedTestResult.pingMs} <span className="text-xs font-normal">ms</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                    Jitter
+                  </div>
+                  <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
+                    {speedTestResult.jitterMs} <span className="text-xs font-normal">ms</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ISP Status Card */}
+          <div className="card p-5 flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-dark-text flex items-center space-x-2">
+                  <Activity className="w-5 h-5 text-success-600" />
+                  <span>ISP Status in this City</span>
+                </h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Mock status feed shaped like a real status API (Statuspage, custom ISP endpoints).
+                </p>
+              </div>
+            </div>
+
+            {statusLoading && (
+              <div className="text-sm text-neutral-500 dark:text-neutral-400 flex items-center space-x-2">
+                <span className="w-3 h-3 rounded-full border-2 border-primary-600 border-t-transparent animate-spin" />
+                <span>Loading current status…</span>
+              </div>
+            )}
+
+            {ispStatuses && ispStatuses.length > 0 && (
+              <div className="space-y-3 text-sm max-h-48 overflow-y-auto pr-1">
+                {ispStatuses.map((status) => (
+                  <div
+                    key={status.ispId}
+                    className="flex items-start justify-between border border-neutral-200 dark:border-dark-border rounded-lg px-3 py-2"
+                  >
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <Wifi className="w-4 h-4 text-primary-600" />
+                        <span className="font-semibold text-neutral-900 dark:text-dark-text">
+                          {status.ispName}
+                        </span>
+                      </div>
+                      <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                        {status.message}
+                      </div>
+                      {status.incidents && status.incidents.length > 0 && (
+                        <div className="mt-1 text-xs text-warning-600 dark:text-warning-400 flex items-center space-x-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>{status.incidents[0].title}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs font-medium">
+                      <span
+                        className={
+                          status.status === 'operational'
+                            ? 'text-success-600'
+                            : status.status === 'outage'
+                            ? 'text-error-600'
+                            : 'text-warning-600'
+                        }
+                      >
+                        {status.status.charAt(0).toUpperCase() + status.status.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {ispStatuses && ispStatuses.length === 0 && !statusLoading && (
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">
+                No live status information available for providers in this city.
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Controls */}

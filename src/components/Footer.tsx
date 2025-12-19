@@ -95,7 +95,7 @@ const Footer: React.FC = () => {
               <li className="flex items-start space-x-2 text-neutral-600 dark:text-neutral-400">
                 <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <a href="mailto:contact@ispfinder.com" className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                  contact@ispfinder.com
+                  contact@sumipdaikobhattipasal.com
                 </a>
               </li>
               <li className="flex items-start space-x-2 text-neutral-600 dark:text-neutral-400">
@@ -106,7 +106,7 @@ const Footer: React.FC = () => {
               </li>
               <li className="flex items-start space-x-2 text-neutral-600 dark:text-neutral-400">
                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>123 Kanti Ave<br />San Francisco, KTM 94105</span>
+                <span>123 Kanti Ave<br />San Chakrapath, KTM 94105</span>
               </li>
             </ul>
           </div>
@@ -116,7 +116,7 @@ const Footer: React.FC = () => {
         <div className="mt-12 pt-8 border-t border-neutral-200 dark:border-dark-border">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              © {currentYear} ISP Coverage Finder. All rights reserved.
+              © {currentYear} KaskoIsP : ISP Coverage Finder. All rights reserved.
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-sm">
               <a href="#" className="text-neutral-600 dark:text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
