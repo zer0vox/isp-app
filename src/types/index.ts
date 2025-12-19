@@ -118,6 +118,15 @@ export interface SpeedTestResult {
   timestamp: string;
   ispName?: string;
   cityId?: string;
+  serverLocation?: string;
+  serverName?: string;
+}
+
+export interface SpeedTestProgress {
+  phase: 'idle' | 'ping' | 'download' | 'upload' | 'complete' | 'error';
+  progress: number; // 0-100
+  currentSpeed?: number; // Current speed in Mbps
+  message?: string;
 }
 
 export interface IspStatus {

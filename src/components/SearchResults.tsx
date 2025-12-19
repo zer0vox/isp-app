@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Grid, List, SlidersHorizontal, ArrowUpDown, Activity, AlertTriangle, Wifi, Gauge } from 'lucide-react';
 import ISPCard from './ISPCard';
 import { isps } from '../data';
-import type { ISP, ConnectionType, SortOption, SpeedTestResult, IspStatus } from '../types';
+import type { ISP, ConnectionType, SortOption, SpeedTestResult, IspStatus, SpeedTestProgress } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { runSpeedTest } from '../utils/speedTest';
 import { fetchIspStatusForCity } from '../utils/status';
@@ -19,6 +19,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({ cityId, cityName }) => {
   const [isRunningSpeedTest, setIsRunningSpeedTest] = useState(false);
   const [speedTestResult, setSpeedTestResult] = useState<SpeedTestResult | null>(null);
   const [speedTestError, setSpeedTestError] = useState<string | null>(null);
+  const [speedTestProgress, setSpeedTestProgress] = useState<SpeedTestProgress | null>(null);
   const [ispStatuses, setIspStatuses] = useState<IspStatus[] | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   
@@ -177,14 +178,38 @@ const SearchResults: React.FC<SearchResultsProps> = ({ cityId, cityName }) => {
     if (!cityId || isRunningSpeedTest) return;
     setIsRunningSpeedTest(true);
     setSpeedTestError(null);
+    setSpeedTestResult(null);
+    setSpeedTestProgress({
+      phase: 'idle',
+      progress: 0,
+      message: 'Initializing speed test...',
+    });
+    
     try {
-      const result = await runSpeedTest(cityId);
+      const result = await runSpeedTest(cityId, (progress) => {
+        setSpeedTestProgress(progress);
+      });
       setSpeedTestResult(result);
+      setSpeedTestProgress({
+        phase: 'complete',
+        progress: 100,
+        message: 'Speed test complete!',
+      });
     } catch (e) {
       console.error('Speed test failed', e);
-      setSpeedTestError('Speed test failed. Please try again in a moment.');
+      const errorMessage = e instanceof Error ? e.message : 'Speed test failed. Please try again in a moment.';
+      setSpeedTestError(errorMessage);
+      setSpeedTestProgress({
+        phase: 'error',
+        progress: 0,
+        message: errorMessage,
+      });
     } finally {
       setIsRunningSpeedTest(false);
+      // Clear progress after a delay
+      setTimeout(() => {
+        setSpeedTestProgress(null);
+      }, 3000);
     }
   };
 
@@ -222,7 +247,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({ cityId, cityName }) => {
                   <span>Run a Speed Test</span>
                 </h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Simulated test inspired by M-Lab. Use this as a UX preview for a real NDT integration.
+                  Real speed test using M-Lab infrastructure. Measures actual download, upload, ping, and jitter.
                 </p>
               </div>
               <button
@@ -234,46 +259,79 @@ const SearchResults: React.FC<SearchResultsProps> = ({ cityId, cityName }) => {
               </button>
             </div>
 
+            {/* Progress Indicator */}
+            {isRunningSpeedTest && speedTestProgress && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-neutral-600 dark:text-neutral-400">
+                    {speedTestProgress.message || 'Running test...'}
+                  </span>
+                  <span className="text-primary-600 dark:text-primary-400 font-medium">
+                    {speedTestProgress.progress.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
+                  <div
+                    className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${speedTestProgress.progress}%` }}
+                  />
+                </div>
+                {speedTestProgress.currentSpeed !== undefined && (
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Current speed: {speedTestProgress.currentSpeed.toFixed(1)} Mbps
+                  </div>
+                )}
+              </div>
+            )}
+
             {speedTestError && (
-              <div className="text-xs text-error-600 dark:text-error-400">
+              <div className="text-xs text-error-600 dark:text-error-400 bg-error-50 dark:bg-error-900/20 p-2 rounded">
                 {speedTestError}
               </div>
             )}
 
-            {speedTestResult && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-                    Download
+            {speedTestResult && !isRunningSpeedTest && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                      Download
+                    </div>
+                    <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
+                      {speedTestResult.downloadMbps} <span className="text-xs font-normal">Mbps</span>
+                    </div>
                   </div>
-                  <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
-                    {speedTestResult.downloadMbps} <span className="text-xs font-normal">Mbps</span>
+                  <div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                      Upload
+                    </div>
+                    <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
+                      {speedTestResult.uploadMbps} <span className="text-xs font-normal">Mbps</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                      Ping
+                    </div>
+                    <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
+                      {speedTestResult.pingMs} <span className="text-xs font-normal">ms</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                      Jitter
+                    </div>
+                    <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
+                      {speedTestResult.jitterMs} <span className="text-xs font-normal">ms</span>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-                    Upload
+                {speedTestResult.serverLocation && (
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                    Test server: {speedTestResult.serverLocation}
+                    {speedTestResult.serverName && ` (${speedTestResult.serverName})`}
                   </div>
-                  <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
-                    {speedTestResult.uploadMbps} <span className="text-xs font-normal">Mbps</span>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-                    Ping
-                  </div>
-                  <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
-                    {speedTestResult.pingMs} <span className="text-xs font-normal">ms</span>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-                    Jitter
-                  </div>
-                  <div className="text-xl font-semibold text-neutral-900 dark:text-dark-text">
-                    {speedTestResult.jitterMs} <span className="text-xs font-normal">ms</span>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
